@@ -1,0 +1,6 @@
+*.prof
+*.log
+*.out
+*.err
+*.cfg
+*.json
