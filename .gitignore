@@ -3,4 +3,5 @@
 *.out
 *.err
 *.cfg
-*.json
+rp.*.json
+./ve-analytics/
