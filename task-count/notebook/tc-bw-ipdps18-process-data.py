@@ -24,7 +24,7 @@ import radical.entk as re
 
 # Input constants
 trials = 1
-stages = [16, 64]
+stages = [16, 64, 256]
 resource = 'bw'
 src = '../raw-data/'
 proc = '../proc-data/'
@@ -73,7 +73,7 @@ def get_entk_overheads(loc, sid):
 def get_entk_exec_time(loc, sid):
     sess = ra.Session(stype='radical.entk', src=loc, sid=sid)
     tasks = sess.filter(etype='task', inplace=False)
-    return tasks.duration(state=['SUBMITTED','EXECUTED'])
+    return tasks.duration(state=['SCHEDULING','DONE'])
 
 
 # In[6]:
