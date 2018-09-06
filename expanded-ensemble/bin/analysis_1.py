@@ -72,6 +72,10 @@ if __name__ == '__main__':
                 nlambda = len(l.split()[2:])
 
         weights = np.zeros(nlambda)
+        # weights_in = [0.,      0.,      0.,      0.,      0.,     7.402,  14.094,  21.35,  27.884,  33.76,   39.009,
+        #               43.648,  47.693,  51.149,  54.844, 57.502,  59.093,  59.541,  58.753,  56.646,  59.809,  62.959,
+        #               66.053,  69.068,  71.442,  72.642,  75.091,  77.396,  77.923,  76.241,  75.518,  76.392]
+        # weights = np.array(weights_in)
         counts = np.zeros(nlambda)
 
         generate_new_mdp(args.template, args.newname, weights, int(args.wldelta), equil, int(args.lambda_state), int(args.seed), counts)

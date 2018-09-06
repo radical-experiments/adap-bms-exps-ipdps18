@@ -1,0 +1,10 @@
+{
+    "adap_time": 1.3060996532440186, 
+    "exec_time": 1134.98340010643, 
+    "overheads": {
+        "init_time": 0.1445000171661377, 
+        "res_sub_time": 13.81879997253418, 
+        "rts_teardown_time": 37.34120011329651, 
+        "total_teardown_time": 61.02110004425049
+    }
+}

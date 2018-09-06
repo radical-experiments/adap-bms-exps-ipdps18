@@ -1,0 +1,3 @@
+{
+    "python.pythonPath": "${workspaceFolder}/ve-analytics/bin/python"
+}

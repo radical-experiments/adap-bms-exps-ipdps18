@@ -23,7 +23,7 @@ import radical.entk as re
 
 
 # Input constants
-trials = 1
+trials = 2
 stages = [16, 64, 256]
 resource = 'bw'
 src = '../raw-data/'

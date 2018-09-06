@@ -23,7 +23,7 @@ import radical.entk as re
 
 
 # Input constants
-trials = 1
+trials = [2]
 stages = [16, 64, 256]
 resource = 'bw'
 src = '../raw-data/'
@@ -114,7 +114,7 @@ def write_data(data, proc_path):
 
 print 'EnTK analysis'
 for s in stages:
-    for t in range(1,trials+1):
+    for t in trials:
         path = os.path.join(src,resource,'trial-%s'%t,'stages-%s'%s)
         for sess in glob(path + '/' + 're.session.*'):  
             print 'Processing: ', sess
@@ -148,7 +148,7 @@ def process_rp_profiles(src):
 
 print 'RP analysis'
 for s in stages:
-    for t in range(1,trials+1):
+    for t in trials:
         path = os.path.join(src,resource,'trial-%s'%t,'stages-%s'%s)
         for sess in glob(path + '/' + 'rp.session.*/'):  
             print 'Processing: ', sess

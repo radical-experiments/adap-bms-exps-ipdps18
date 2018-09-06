@@ -8,6 +8,70 @@ import glob
 import shutil
 import argparse
 
+
+def get_average_weight_data(logfiles, weight_size):
+    """
+    summary: uses log files to compute the average expanded ensemble weights
+
+    input:
+        logfiles (list) - names of the logs file to be used
+        weight_size (int) - number of states
+    output:
+        weights_a (np.array) - array of time averaged weights
+    """
+
+    weights_temp = np.zeros([int(weight_size)])
+    count = 0
+
+    for log_file in logfiles:
+
+        f = open(log_file, 'r')
+        lines = f.readlines()
+        f.close()
+
+        wldelta = None
+        time = None
+        step = None
+        next_line = 0
+        weight_line = 0
+        wl_max_hit = 1
+        for l in lines:
+            if 'Step           Time' in l:
+                next_line = 1
+            elif 'Wang-Landau incrementor is:' in l:
+                vals = l.split(':')
+                if wldelta is None:
+                    wldelta = map(float, vals[1].split())
+                else:
+                    wldelta.extend(map(float, vals[1].split()))
+            elif next_line is 1:
+                vals = l.split()
+                if time is None:
+                    time = map(float, vals[1].split())
+                    step = map(float, vals[0].split())
+                else:
+                    time.extend(map(float, vals[1].split()))
+                    step.extend(map(float, vals[0].split()))
+                next_line = 0
+            elif 'N   FEPL  CoulL   VdwL  RestT    Count   G(in kT)  dG(in kT)' in l:
+                weight_line = 1
+                if wl_max_hit is 1:
+                    count += 1
+            elif weight_line is 1:
+                if wl_max_hit is 1:
+                    vals = l.split()
+                    state = int(vals[0])
+                    weight = float(vals[6])
+                    if state is int(weight_size):
+                        weight_line = 0
+                    weights_temp[state-1] += weight
+            else:
+                next_line = 0
+
+    weights_a = weights_temp / count
+    return weights_a
+
+
 def get_weights_from_mbar(free_energy_file):
 
     f = open(free_energy_file,'r')
@@ -31,11 +95,14 @@ def get_weights_from_mbar(free_energy_file):
     return np.array(weights)
 
 
-def free_energy_analysis(dir, filelist, template, new_mdp_name, run_number, gen_number):
+def free_energy_analysis(dir, prev_data, filelist, template, new_mdp_name, run_number, gen_number):
 
     # run alchemical analysis on the expanded ensemble dhdl's
     # identify the dhdl files, copy them to a new directory, renaming if necessary, and figure out how many of them we should use
     dhdlfiles = glob.glob(os.path.join(dir,'*dhdl.xvg'))
+
+    if prev_data:
+        dhdlfiles.extend(glob.glob(os.path.join(prev_data, '*dhdl.xvg')))
 
     #maximum number of generations
     max_all_gens = 1000
@@ -65,7 +132,7 @@ def free_energy_analysis(dir, filelist, template, new_mdp_name, run_number, gen_
     # 3 generations - ignore 1, 
     # 4 generations - ignore 2, 
     maxgen = np.max(generations)
-    analysis_cutoff = int(np.ceil(maxgen/3.0))
+    analysis_cutoff = int(np.ceil(maxgen/2.0))
     if (analysis_cutoff - maxgen) < 1:
         analysis_cutoff = 0
 
@@ -105,8 +172,8 @@ def free_energy_analysis(dir, filelist, template, new_mdp_name, run_number, gen_
             absolute_analysis_dir = os.path.join('./', analysis_dir)
             shutil.copyfile(d, os.path.join(absolute_analysis_dir,newfile))
 
-    try:
-        subprocess.call(['python', 'alchemical_analysis.py', '--units', 'kBT', '-t', '300', '-d', absolute_analysis_dir, '-p', 'PLCpep7_', '-x', '-i', '1000'])
+    try:  # todo: ask if i should still be set to 1000
+        subprocess.call(['python', 'alchemical_analysis.py', '--units', 'kBT', '-t', '300', '-d', absolute_analysis_dir, '-p', 'CB7G3_', '-x', '-i', '1000'])
 
     except:
         pass
@@ -146,6 +213,37 @@ def free_energy_analysis(dir, filelist, template, new_mdp_name, run_number, gen_
     for i in range(0,len(weights)-1):
         weights[i+1] = weights[i] + dweights[i+1]
 
+    # AVERAGE WEIGHT ANALYSIS- added by Travis Jensen
+    # ------------------------------------------------------------------------------------------------------------------
+    # run analysis on the expanded ensemble log files to determine new weights
+    # identify the log files, copy them to a new directory, renaming if necessary,
+    # and figure out how many of them we should use
+
+    # copy the log files into a new directory, so we can just read all of them in the folder.
+    for d in dhdlfiles:
+        vals = d.split('_')
+        run = int(vals[1].replace('run', ''))
+        gen = int(vals[2].replace('gen', ''))
+        if gen in analysis_gens:
+            # rename to pull log instead of dhdl
+            file_name = d.replace('_dhdl.xvg', '.log')
+            # folder = vals[0].split('/')[0]
+            # print vals[0].split('/')
+            newfile = vals[0].split('/')[2] + '_' + str(max_all_gens * run + gen) + '.log'
+            # absolute_analysis_dir = os.path.join(folder, analysis_dir)
+            absolute_analysis_dir = os.path.join('./', analysis_dir)
+            shutil.copyfile(file_name, os.path.join(absolute_analysis_dir, newfile))
+
+    # run analysis on log files to generate new weights
+    log_files = glob.glob(os.path.join(absolute_analysis_dir, 'CB7G3*.log'))
+    weights = get_average_weight_data(log_files, weight_size=len(weights))
+
+    # writing results to file
+    log_results = open('results_average.txt', 'w')
+    log_results.write(str(weights) + '\n')
+    log_results.close()
+    # ------------------------------------------------------------------------------------------------------------------
+
     # sort out the logfiles
     logs = []
     for f in filelist:
@@ -161,9 +259,9 @@ def free_energy_analysis(dir, filelist, template, new_mdp_name, run_number, gen_
         run = int(vals[1].replace('run',''))
         gen = int((vals[2].replace('gen','')).replace('.log',''))
         if gen != maxgens_per_run[runs.index(run)]:
-            continue # we only want to run the last generation, so if it's not the last one, don't bother here.
+            continue  # we only want to run the last generation, so if it's not the last one, don't bother here.
 
-        # TJJ: added to ensure the correct run/gen is used for assigning the lambda value
+        # added by Travis Jensen to ensure proper gen and run are looked at
         if gen != int(gen_number):
             continue
         if run != int(run_number):
@@ -219,9 +317,9 @@ def get_info_from_logfile(logfile):
             wldelta = float(vals[1])
 
             # Grep all the vals in order to extract the count
-            all_vals = lines[lineno+2:lineno+44]  # TJJ todo: make number of states an input?
+            all_vals = lines[lineno+2:lineno+34]  # todo: change this to something that is not hard coded
+                                                  # todo: fails if the number of states change
         lineno+=1
-
 
     # we don't break, because we need the LAST wldelta
         
@@ -229,11 +327,15 @@ def get_info_from_logfile(logfile):
     counts = []
 
     for row in all_vals:
-        val = int(row.strip('\n').split()[5])
+        try:
+            val = int(row.strip('\n').split()[4])
+        except ValueError:
+            val = 0
         counts.append(val)
 
     return is_equilibrated, wldelta, counts
-        
+
+
 def get_info_from_dhdl(dhdl, trajectory_frequency=None, coupled_states = [0,1,2,3]):
 
     # we want the final state, and a list of the frames with trajectories that are coupled.
@@ -267,6 +369,7 @@ def get_info_from_dhdl(dhdl, trajectory_frequency=None, coupled_states = [0,1,2,
         coupled_frames = np.array(coupled_frames)
 
     return final_state, coupled_frames
+
 
 def generate_new_mdp(template, new_mdp_name, weights, wldelta, equilibrated, init_lambda_state, seed, counts):
 
@@ -310,6 +413,7 @@ def generate_new_mdp(template, new_mdp_name, weights, wldelta, equilibrated, ini
             l = l.replace('REPLACEINITCOUNTS',counts_string)
         f.write(l)
 
+
 def configuration_analysis(dir, filelist):
     ''' 
     inputs
@@ -326,10 +430,16 @@ if __name__ == "__main__":
     parser.add_argument('--dir', help='path to data')
     parser.add_argument('--run', help='current run')
     parser.add_argument('--gen', help='current gen')
+    parser.add_argument('--prev_data', help='path to data from previous iterations', default=None)
     args = parser.parse_args()
 
     dir = args.dir
+    prev_data = args.prev_data
     #dir = './'
-    filelist = glob.glob(os.path.join(dir,'PLCpep7*'))
+    filelist = glob.glob(os.path.join(dir,'CB7G3*'))
+
+    if prev_data:
+        filelist.extend(glob.glob(os.path.join(prev_data, 'CB7G3*')))
+
     #template = 'PLCpep7_template.mdp'
-    free_energy_analysis(dir, filelist, args.template, args.newname, args.run, args.gen)
+    free_energy_analysis(dir, prev_data, filelist, args.template, args.newname, args.run, args.gen)

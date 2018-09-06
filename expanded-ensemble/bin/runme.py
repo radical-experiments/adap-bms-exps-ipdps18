@@ -15,7 +15,6 @@ TOTAL_ITERS = 5       # Number of iterations to run current trial
 SEED = 1            # Seed for stage 1
 
 
-# Please leave the following as is, issue #3 needs to be resolved before modifying these
 # The following are helpful if we divide our entire experiment of N iterations
 # over M trials due to (say) walltime limitations
 DONE = 0              # Number of iterations already DONE

@@ -7,3 +7,4 @@ rp.*.json
 re.*.json
 stfp*.json
 ./ve-analytics/*
+ve-*
