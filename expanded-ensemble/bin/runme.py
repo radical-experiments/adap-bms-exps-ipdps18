@@ -1,6 +1,7 @@
 __author__ = "Vivek Balasubramanian <vivek.balasubramanian@rutgers.edu>"
-__copyright__ = "Copyright 2016, http://radical.rutgers.edu"
+__copyright__ = "Copyright 2018, http://radical.rutgers.edu"
 __license__ = "MIT"
+
 
 from radical.entk import Pipeline, Stage, Task, AppManager
 import argparse
@@ -9,253 +10,259 @@ import glob
 
 
 # User settings
-ENSEMBLE_SIZE = 16    # Number of ensemble members / pipelines
-PIPELINE_SIZE = 4     # Number of stages in each pipeline, currently 4
-TOTAL_ITERS = 5       # Number of iterations to run current trial
+ENSEMBLE_SIZE = 2    # Number of ensemble members / pipelines
+TOTAL_ITERS = 2       # Number of iterations to run current trial
 SEED = 1            # Seed for stage 1
+GMX_PATH = '/home/trje3733/pkgs/gromacs/5.1.3.wlmod'
+ALCH_ANA_PATH = '/home/vivek91/modules/alchemical-analysis'
+
+# Book to store object names
+book = dict()
+
+# Iteration number to start with
+cur_iter = [0 for _ in range(ENSEMBLE_SIZE)]
 
 
-# The following are helpful if we divide our entire experiment of N iterations
-# over M trials due to (say) walltime limitations
-DONE = 0              # Number of iterations already DONE
-ITER = [(DONE + 1) for x in range(1, ENSEMBLE_SIZE + 1)]      # Iteration number to start with
-DATA_LOC = ''       # Location where data from iterations 0 to DONE-1 is located
+def get_pipeline(instance, iterations):
 
+    def func_condition():
 
-# Handling failed tasks
-FAILED = [False for x in range(1, ENSEMBLE_SIZE + 1)]
+        global cur_iter
 
+        if cur_iter[instance] < iterations:
+            cur_iter[instance] += 1
+            return True
 
-def get_pipeline(instance):
+        return False
 
-    p = Pipeline()
+    def func_on_true():
 
-    # Stage 1 simply processes the parameter files to get started.
-    # Runs only for the first iteration
+        global cur_iter, book
 
-    global SEED, ITER
+        # Create Stage 2
+        s2 = Stage()
+        s2.name = 'iter%s-s2' % cur_iter[instance]
 
-    s1 = Stage()
+        # Create a Task
+        t2 = Task()
+        t2.name = 'iter%s-s2-t2' % cur_iter[instance]
 
-    t = Task()
-    t.pre_exec = ['module load python']
-    t.executable = 'python'
-    t.arguments = ['analysis_1.py',
-                   '--template', 'PLCpep7_template.mdp',
-                   '--newname', 'PLCpep7_run.mdp',
-                   '--wldelta', '100',
-                   '--equilibrated', 'False',
-                   '--lambda_state', '0',
-                   '--seed', '%s' % SEED]
-    t.cores = 1
-    t.copy_input_data = ['$SHARED/PLCpep7_template.mdp', '$SHARED/analysis_1.py']
-    s1.add_tasks(t)
-    p.add_stages(s1)
+        t2.pre_exec = ['source %s/bin/GMXRC.bash' % GMX_PATH]
+        t2.executable = ['gmx grompp']
+        t2.arguments = ['-f', 'CB7G3_run.mdp',
+                        '-c', 'CB7G3.gro',
+                        '-p', 'CB7G3.top',
+                        '-n', 'CB7G3.ndx',
+                        '-o', 'CB7G3.tpr',
+                        '-maxwarn', '10']
+        t2.cores = 1
+        t2.copy_input_data = [
+            '$SHARED/CB7G3.ndx',
+            '$SHARED/CB7G3.top',
+            '$SHARED/3atomtypes.itp',
+            '$SHARED/3_GMX.itp',
+            '$SHARED/cucurbit_7_uril_GMX.itp'
+        ]
 
-    # Stage 2 is the gromacs preprocessing stage. In the first iteration, uses the output of stage 1. Otherwise
-    # operates over the .gro file from stage 3 of the previous iteration and .mdp file from stage 4 of the previous
-    # of iteration
-
-    s2 = Stage()
-
-    t = Task()
-    t.executable = 'gmx grompp'
-    t.pre_exec = ['source /home/vivek91/modules/gromacs_serial/bin/GMXRC.bash']
-    t.arguments = ['-f', 'PLCpep7_run.mdp',
-                   '-c', 'PLCpep7.gro',
-                   '-p', 'PLCpep7.top',
-                   '-n', 'PLCpep7.ndx',
-                   '-o', 'PLCpep7.tpr',
-                   '-maxwarn', '10']
-    t.cores = 1
-    t.copy_input_data = [
-        '$SHARED/PLCpep7.ndx',
-        '$SHARED/PLCpep7.top'
-    ]
-
-    global ITER
-
-    print 'iter: {0}, stage: 2 . instance: {1}'.format(ITER[instance - 1], instance)
-
-    if (ITER[instance - 1] == DONE + 1):
-
-        if DONE == 0:
-            k2.copy_input_data += ['$ITER_1_STAGE_1_TASK_{0}/PLCpep7_run.mdp'.format(instance), '$SHARED/PLCpep7.gro']
+        if cur_iter[instance] == 1:
+            t2.copy_input_data += ['$Pipeline_%s_Stage_%s_Task_%s/CB7G3_run.mdp' % (p.name,
+                                                                                    book[p.name]['stages'][-1]['name'],
+                                                                                    book[p.name]['stages'][-1]['task']),
+                                   '$SHARED/CB7G3.gro']
         else:
-            k2.copy_input_data += ['{2}/PLCpep7_run_iter{1}_pipe{0}.mdp > PLCpep7_run.mdp'.format(instance, DONE, DATA_LOC),
-                                   '{2}/PLCpep7_iter{1}_pipe{0}.gro > PLCpep7.gro'.format(instance, DONE, DATA_LOC)]
-    else:
-        k2.copy_input_data += ['$ITER_{1}_STAGE_4_TASK_{0}/PLCpep7_run.mdp'.format(instance, ITER[instance - 1] - 1 - DONE),
-                               '$ITER_{1}_STAGE_3_TASK_{0}/PLCpep7.gro'.format(instance, ITER[instance - 1] - 1 - DONE)]
+            t2.copy_input_data += ['$Pipeline_%s_Stage_%s_Task_%s/CB7G3_run.mdp' % (p.name,
+                                                                                    book[p.name]['stages'][-1]['name'],
+                                                                                    book[p.name]['stages'][-1]['task']),
+                                   '$Pipeline_%s_Stage_%s_Task_%s/CB7G3.gro' % (p.name,
+                                                                                book[p.name]['stages'][-2]['name'],
+                                                                                book[p.name]['stages'][-2]['task'])]
 
-    s2.add_tasks(t)
-    p.add_stages(s2)
+        # Add the Task to the Stage
+        s2.add_tasks(t2)
 
-    # Stage 3 is the compute intensive gromacs mdrun stage. It operates over the .tpr file generated by stage 2.
-    # Stages its output (*.xvg, *.log) to shared location on remote -- 'staging_area' under the pilot folder. The
-    # same output is also downloaded to the local machine to keep a backup.
+        # Add current Task and Stage to our book
+        book[p.name]['stages'].append({'name': s2.name, 'task': t2.name})
 
-    s3 = Stage()
+        # Add Stage to the Pipeline
+        p.add_stages(s2)
 
-    t = Task()
-    t.executable = 'gmx mdrun'
-    t.pre_exec = ['source /home/vivek91/modules/gromacs_serial/bin/GMXRC.bash']
-    t.arguments = ['-nt', '20',
-                   '-deffnm', 'PLCpep7',
-                   '-dhdl', 'PLCpep7_dhdl.xvg']
-    t.cores = 20
-    t.copy_input_data = ['$STAGE_2_TASK_{0}/PLCpep7.tpr'.format(instance)]
+        # Create Stage 3
+        s3 = Stage()
+        s3.name = 'iter%s-s3' % cur_iter[instance]
 
-    t.copy_output_data = ['PLCpep7_dhdl.xvg > $SHARED/PLCpep7_run{1}_gen{0}_dhdl.xvg'.format(ITER[instance - 1], instance),
-                          'PLCpep7_pullf.xvg > $SHARED/PLCpep7_run{1}_gen{0}_pullf.xvg'.format(
-                              ITER[instance - 1], instance),
-                          'PLCpep7_pullx.xvg > $SHARED/PLCpep7_run{1}_gen{0}_pullx.xvg'.format(
-        ITER[instance - 1], instance),
-        'PLCpep7.log > $SHARED/PLCpep7_run{1}_gen{0}.log'.format(ITER[instance - 1], instance)]
+        # Create a Task
+        t3 = Task()
+        t3.name = 'iter%s-s3-t3' % cur_iter[instance]
+        t3.pre_exec = ['source %s/bin/GMXRC.bash' % GMX_PATH]
+        t3.executable = ['gmx mdrun']
+        t3.arguments = ['-nt', 20,
+                        '-deffnm', 'CB7G3',
+                        '-dhdl', 'CB7G3_dhdl.xvg', ]
+        t3.cores = 20
+        # t3.mpi = True
+        t3.copy_input_data = ['$Pipeline_%s_Stage_%s_Task_%s/CB7G3.tpr' % (p.name,
+                                                                           book[p.name]['stages'][-1]['name'],
+                                                                           book[p.name]['stages'][-1]['task'])]
+        t3.copy_output_data = ['CB7G3_dhdl.xvg > $SHARED/CB7G3_run{1}_gen{0}_dhdl.xvg'.format(cur_iter[instance], instance),
+                                'CB7G3_pullf.xvg > $SHARED/CB7G3_run{1}_gen{0}_pullf.xvg'.format(cur_iter[instance], instance),
+                                'CB7G3_pullx.xvg > $SHARED/CB7G3_run{1}_gen{0}_pullx.xvg'.format(cur_iter[instance], instance),
+                                'CB7G3.log > $SHARED/CB7G3_run{1}_gen{0}.log'.format(cur_iter[instance], instance)
+        ]
+        t3.download_output_data = ['CB7G3.xtc > ./output/CB7G3_run{1}_gen{0}.xtc'.format(cur_iter[instance], instance),
+                                    'CB7G3.log > ./output/CB7G3_run{1}_gen{0}.log'.format(cur_iter[instance], instance),
+                                    'CB7G3_dhdl.xvg > ./output/CB7G3_run{1}_gen{0}_dhdl.xvg'.format(cur_iter[instance], instance),
+                                    'CB7G3_pullf.xvg > ./output/CB7G3_run{1}_gen{0}_pullf.xvg'.format(cur_iter[instance], instance),
+                                    'CB7G3_pullx.xvg > ./output/CB7G3_run{1}_gen{0}_pullx.xvg'.format(cur_iter[instance], instance),
+                                    'CB7G3.gro > ./output/CB7G3_run{1}_gen{0}.gro'.format(cur_iter[instance], instance)]
 
-    t.download_output_data = ['PLCpep7.xtc > PLCpep7_run{1}_gen{0}.xtc'.format(ITER[instance - 1], instance),
-                              'PLCpep7.log > PLCpep7_run{1}_gen{0}.log'.format(ITER[instance - 1], instance),
-                              'PLCpep7_dhdl.xvg > PLCpep7_run{1}_gen{0}_dhdl.xvg'.format(ITER[instance - 1], instance),
-                              'PLCpep7_pullf.xvg > PLCpep7_run{1}_gen{0}_pullf.xvg'.format(
-        ITER[instance - 1], instance),
-        'PLCpep7_pullx.xvg > PLCpep7_run{1}_gen{0}_pullx.xvg'.format(
-        ITER[instance - 1], instance),
-        'PLCpep7.gro > PLCpep7_run{1}_gen{0}.gro'.format(ITER[instance - 1], instance)]
+        # Add the Task to the Stage
+        s3.add_tasks(t3)
 
-    s3.add_tasks(t)
-    p.add_stages(s3)
+        # Add current Task and Stage to our book
+        book[p.name]['stages'].append({'name': s3.name, 'task': t3.name})
 
-    # Stage 4 executes the alchemical analysis script and prepares the .mdp file for the next iteration.
-    # It currently operates on all data (*.xvg, *.log) that is available at that moment in './data'.
-    # './data' maps to the 'staging_area' that was referred to in stage 3. Downloads the results, output, error and
-    # the new mdp file to the local machine to keep a backup
+        # Add Stage to the Pipeline
+        p.add_stages(s3)
 
-    s4 = Stage()
+        # Create Stage 4
+        s4 = Stage()
+        s4.name = 'iter%s-s4' % cur_iter[instance]
 
-    t = Task()
-    t.pre_exec = ['module load python',
-                  'export PYTHONPATH=/home/vivek91/modules/alchemical-analysis/alchemical_analysis:$PYTHONPATH',
-                  'export PYTHONPATH=/home/vivek91/modules/alchemical-analysis:$PYTHONPATH',
-                  'export PYTHONPATH=/home/vivek91/.local/lib/python2.7/site-packages:$PYTHONPATH',
-                  'ln -s ../staging_area data']
-    t.executable = 'python'
-    t.arguments = ['analysis_2.py',
-                   '--template', 'PLCpep7_template.mdp',
-                   '--newname', 'PLCpep7_run.mdp',
-                   '--dir', './data',
-                   '--run', instance,
-                   '--gen', ITER[instance-1]]
-
-    t.cores = 1
-
-    t.link_input_data = ['$SHARED/analysis_2.py',
-                         '$SHARED/alchemical_analysis.py',
-                         '$SHARED/PLCpep7_template.mdp',
-                         ]
-
-    if ITER[instance - 1] > DONE + 1:
-        t.link_input_data += ['$ITER_{1}_STAGE_4_TASK_{0}/analyze_1/results.txt > results_bak.txt'.format(instance, ITER[
-                                                                                                          instance - 1] - 1 - DONE)]
-
-    t.download_output_data = ['analyze_1/results.txt > results_run{1}_gen{0}.txt'.format(ITER[instance - 1], instance),
-                              'STDOUT > stdout_run{1}_gen{0}'.format(ITER[instance - 1], instance),
-                              'STDERR > stderr_run{1}_gen{0}'.format(ITER[instance - 1], instance),
-                              'PLCpep7_run.mdp > PLCpep7_run{1}_gen{0}.mdp'.format(ITER[instance - 1], instance)
+        # Create a Task
+        t4 = Task()
+        t4.name = 'iter%s-s4-t4' % cur_iter[instance]
+        t4.pre_exec = ['module load python/2.7.7-anaconda',
+                       'export PYTHONPATH=%s/alchemical_analysis:$PYTHONPATH' % ALCH_ANA_PATH,
+                       'export PYTHONPATH=%s:$PYTHONPATH' % ALCH_ANA_PATH,
+                       'export PYTHONPATH=/home/vivek91/.local/lib/python2.7/site-packages:$PYTHONPATH',
+                       'ln -s ../staging_area data']
+        t4.executable = ['python']
+        t4.arguments = ['analysis_2.py',
+                        '--newname=CB7G3_run.mdp',
+                        '--template=CB7G3_template.mdp',
+                        '--dir=./data',
+                        # '--prev_data=%s'%DATA_LOC
+                        '--gen={0}'.format(cur_iter[instance], instance),
+                        '--run={1}'.format(cur_iter[instance], instance)
+                        ]
+        t4.cores = 1
+        t4.copy_input_data = ['$SHARED/analysis_2.py',
+                              '$SHARED/alchemical_analysis.py',
+                              '$SHARED/CB7G3_template.mdp',
                               ]
 
-    s4.add_tasks(t)
-    p.add_stages(s4)
+        t4.download_output_data = ['analyze_1/results.txt > ./output/results_run{1}_gen{0}.txt'.format(cur_iter[instance], instance),
+                                    'STDOUT > ./output/stdout_run{1}_gen{0}'.format(cur_iter[instance], instance),
+                                    'STDERR > ./output/stderr_run{1}_gen{0}'.format(cur_iter[instance], instance),
+                                    'CB7G3_run.mdp > ./output/CB7G3_run{1}_gen{0}.mdp'.format(cur_iter[instance], instance),
+                                    'results_average.txt > ./output/results_average_run{1}_gen{0}.txt'.format(cur_iter[instance], instance)
+        ]
 
-    def branch_4(self, instance):
+        s4.post_exec = {
+            'condition': func_condition,
+            'on_true': func_on_true,
+            'on_false': func_on_false
+        }
 
-        #convergence = self.get_output(stage=5,instance=instance)
-        # print 'Convergence of pipeline: ', convergence
+        # Add the Task to the Stage
+        s4.add_tasks(t4)
 
-        global ITER
-        global TOTAL_ITERS
+        # Add current Task and Stage to our book
+        book[p.name]['stages'].append({'name': s4.name, 'task': t4.name})
 
-        if ITER[instance - 1] != TOTAL_ITERS:
-            ITER[instance - 1] += 1
-            self.set_next_stage(stage=2)
-        else:
-            pass
+        # Add Stage to the Pipeline
+        p.add_stages(s4)
 
-        # if convergence > 1:
-            # self.set_next_stage(stage=2)
-        # else:
-        #    pass
+        print book
+
+    def func_on_false():
+
+        print 'All iterations for Pipeline %s done' % instance
+
+    # Create a Pipeline object
+    p = Pipeline()
+    p.name = 'em-%s' % instance
+
+    # Create Stage 1
+    s1 = Stage()
+    s1.name = 'iter1-s1'
+
+    # Create a Task
+    t1 = Task()
+    t1.name = 'iter1-s1-t1'
+
+
+    global book
+    book[p.name] = {
+        'stages': [{'name': s1.name,
+                    'task': t1.name}]}
+
+    t1.pre_exec = ['module load python/2.7.7-anaconda']
+    t1.executable = ['python']
+    t1.arguments = ['analysis_1.py',
+                    '--template', 'CB7G3_template.mdp',
+                    '--newname', 'CB7G3_run.mdp',
+                    '--wldelta', '2',
+                    '--equilibrated', 'False',
+                    '--lambda_state', '0',
+                    '--seed', '%s' % SEED]
+    t1.cores = 1
+    t1.copy_input_data = [
+        '$SHARED/CB7G3_template.mdp', '$SHARED/analysis_1.py']
+
+    s1.post_exec = {
+        'condition': func_condition,
+        'on_true': func_on_true,
+        'on_false': func_on_false
+    }
+
+    # Add the Task to the Stage
+    s1.add_tasks(t1)
+
+    # Add Stage to the Pipeline
+    p.add_stages(s1)
+
+    return p
 
 
 if __name__ == '__main__':
 
-    # Create pattern object with desired ensemble size, pipeline size
-    pipe = Test(ensemble_size=ENSEMBLE_SIZE, pipeline_size=PIPELINE_SIZE)
+    pipelines = set()
 
-    # Create an application manager
-    app = AppManager(name='Expanded_Ensemble', on_error='continue')
+    for i in range(ENSEMBLE_SIZE):
+        pipelines.add(get_pipeline(i, TOTAL_ITERS))
 
-    # Add workload to the application manager
-    app.add_workload(pipe)
+    total_cores = ENSEMBLE_SIZE*20
+
+    # Create a dictionary describe four mandatory keys:
+    # resource, walltime, cores and project
+    # resource is 'local.localhost' to execute locally
+    res_dict = {
+
+        'resource': 'xsede.supermic',
+        'walltime': 30,
+        'cpus': total_cores,
+        'project': 'TG-MCB090174',
+        'access_schema': 'gsissh'
+    }
 
     # Download analysis file from MobleyLab repo
     os.system('curl -O https://raw.githubusercontent.com/MobleyLab/alchemical-analysis/master/alchemical_analysis/alchemical_analysis.py')
 
-    # Parsing user cmd to get resource
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--resource', help='target resource label')
-    args = parser.parse_args()
+    # Create Application Manager
+    amgr = AppManager(port=33231, hostname='two.radical-project.org')
+    amgr.resource_desc = res_dict
 
-    if args.resource != None:
-        resource = args.resource
-    else:
-        resource = 'local.localhost'
+    # Assign resource manager to the Application Manager
+    amgr.shared_data = ['./CB7G3.gro', './CB7G3.ndx', './CB7G3.top',
+                        './CB7G3_template.mdp', './analysis_1.py',
+                        './analysis_2.py', './determine_convergence.py',
+                        './alchemical_analysis.py', './3atomtypes.itp',
+                        './3_GMX.itp',
+                        './cucurbit_7_uril_GMX.itp']
 
-    # Resource description to switch between resources
-    res_dict = {
+    # Assign the workflow as a set of Pipelines to the Application Manager
+    amgr.workflow = pipelines
 
-        'xsede.stampede': {'cores': '64',
-                           'project': 'TG-MCB090174',
-                           'queue': 'development',
-                           'path': '/home/vivek91/repos/expanded-ensemble'
-                           },
-        'xsede.comet': {'cores': '288',
-                        'project': 'unc101',
-                        'queue': 'compute',
-                        'path': '/home/vivek/expanded-ensemble'
-                        },
-        'xsede.supermic': {'cores': '340',
-                           'project': 'TG-MCB090174',
-                           'queue': 'workq'
-                           }
-    }
-
-    # Create a resource handle for target machine
-    res = ResourceHandle(resource=resource,
-                         cores=res_dict[resource]['cores'],
-                         # username='',
-                         project=res_dict[resource]['project'],
-                         queue=res_dict[resource]['queue'],
-                         walltime=60,
-                         database_url='mongodb://rp:rp@ds139430.mlab.com:39430/ee_exp_4c',
-                         access_schema='gsissh'
-                         )
-
-    # Data common to multiple tasks -- transferred only once to common staging area
-    res.shared_data = ['./PLCpep7.gro', './PLCpep7.ndx', './PLCpep7.top',
-                       './PLCpep7_template.mdp', './analysis_1.py',
-                       './analysis_2.py', './determine_convergence.py',
-                       './alchemical_analysis.py']
-
-    try:
-        # Submit request for resources + wait till job becomes Active
-        res.allocate(wait=True)
-
-        # Run the given workload
-        res.run(app)
-
-    except Exception, ex:
-        print 'Error, ', ex
-
-    finally:
-        # Deallocate the resource
-        res.deallocate()
+    # Run the Application Manager
+    amgr.run()

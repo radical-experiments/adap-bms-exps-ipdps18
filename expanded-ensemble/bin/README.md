@@ -7,7 +7,7 @@
 * Requires pymbar package to be installed on the HPC as well
 * These required packages are installed and shared on Supermic. In my experience, Supermic has had shortest queue times. Might be best to start with the same.
 
-## EnTK, Radical Pilot Installation
+## EnTK Installation
 
 First, we need to create a virtual environment. Following uses GCC python:
 
@@ -16,20 +16,12 @@ virtualenv $HOME/myenv
 source $HOME/myenv/activate/bin/activate
 ```
 
-Next, we need to install Radical Pilot.
+Next, we need to install EnTK.
 
 ```
-pip install radical.pilot
+pip install radical.entk
 ```
 
-Next, we install a specific branch of EnTK.
-
-```
-git clone https://github.com/radical-cybertools/radical.ensemblemd.git
-cd radical.ensemblemd
-git checkout feature/get_unit_path
-pip install .
-```
 
 ## Setting up access to HPCs
 
@@ -55,30 +47,47 @@ GSISSH.
 
 ## Executing the expanded ensemble scripts
 
+### Repository clone
+
 Firstly, clone the current repository
 
 ```
-git clone git@github.com:radical-collaboration/expanded-ensemble.git
-cd expanded-ensemble/entk_scripts
+git clone git@github.com:radical-experiments/adaptive-bms-experiments.git
+cd adaptive-bms-experiments/expanded-ensemble/bin
 ```
 
+Note: The up-to-date alchemical analysis script is automatically downloaded from the MobleyLab repository and used.
+
+### User settings 
+
 The ```runme.py``` script contains the information about the application execution
-workflow and the associated data movement. Please take a look at all the 
+workflow and the associated data movement. Please take a look at all the
 comments to understand the various sections.
 
-In line 241, please add your xsede username. Example: ```username='vivek'```.
+* Setup user settings in lines 12-17 of runme.py
+* Setup resource requirement settings in lines 242-246 of runme.py
 
+### Environment settings
+
+Setup environment:
+```
+RADICAL_ENTK_VERBOSE=INFO
+RADICAL_PILOT_VERBOSE=DEBUG
+RADICAL_ENTK_PROFILE=True
+RADICAL_PILOT_PROFILE=True
+RADICAL_PILOT_DBURL="mongodb://user:user123@ds155252.mlab.com:55252/ipdps-bms-ee"
+export SAGA_PTY_SSH_TIMEOUT=300
+```
+
+These variables enable verbosity and profiling of all runs.
+
+
+### Execution
 
 Execution command: 
 ```
-RADICAL_ENTK_VERBOSE=info python runme.py --resource xsede.supermic
+RADICAL_ENTK_VERBOSE=INFO python runme.py
 ```
-
-
-## Note
-
-* Hopefully not, but there might be lingering permission issues which will get detected
-once other users start running the code.
-* The up-to-date alchemical analysis script is automatically downloaded from the MobleyLab repository and used.
-* Previous data is collected and kept at ```/work/02734/vivek91/expanded_ensemble_data``` on Stampede.
+Output is produced in the "output" folder located in the current directory (same
+as where the script resides).
 
