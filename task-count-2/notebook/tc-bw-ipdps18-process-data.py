@@ -38,11 +38,13 @@ def get_adap_time(loc, sid):
     # Get adap time
     duration = 0.0
     sess = ra.Session(stype='radical.entk', src=loc, sid=sid)
-    stages = sorted(sess.filter(etype='stage', inplace=False).list('uid'))
+    #stages = sorted(sess.filter(etype='stage', inplace=False).list('uid'))
 #     print stages
-    for stage in stages:
-        duration += sess.duration(event=[{ru.EVENT: 'executing post-exec for stage %s'%stage},
-                                         {ru.EVENT: 'post-exec executed for stage %s'%stage}])
+    #for stage in stages:
+    duration += sess.duration(event=[{ru.EVENT: 'Adap: adding new stage'},
+                                     {ru.EVENT: 'Adap: added new stage'}])
+    duration += sess.duration(event=[{ru.EVENT: 'Adap: adding new task'},
+                                     {ru.EVENT: 'Adap: added new task'}])
     return duration
 
 
@@ -112,7 +114,7 @@ def write_data(data, proc_path,typ=None):
 # In[51]:
 print 'EnTK analysis'
 for s in stages:
-    for t in range(1,trials+1):
+    for t in range(2,trials+1):
         path = os.path.join(src,resource,'trial-%s'%t)
         for sess in glob(path + '/' + 're.session.*'):  
             print 'Processing: ', sess
