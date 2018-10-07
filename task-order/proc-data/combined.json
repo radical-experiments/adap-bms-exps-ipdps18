@@ -1,0 +1,72 @@
+{
+    "avg": {
+        "16": {
+            "EnTK Adaptivity Overhead": 1.3619999289512634, 
+            "EnTK Management Overhead": 15.678924798965454, 
+            "EnTK Setup Overhead": 12.681424915790558, 
+            "EnTK Teardown Overhead": 45.27644997835159, 
+            "Expected Exec Time": 1020, 
+            "RTS Overhead": 114.96227467060089, 
+            "RTS Teardown Overhead": 39.49299997091293, 
+            "Skew": 4.824374854564667, 
+            "Task Execution Time": 1030.2610253095627
+        }, 
+        "64": {
+            "EnTK Adaptivity Overhead": 5.837740898132324, 
+            "EnTK Management Overhead": 50.44267911911011, 
+            "EnTK Setup Overhead": 10.70046000480652, 
+            "EnTK Teardown Overhead": 31.23878002166748, 
+            "Expected Exec Time": 3900, 
+            "RTS Overhead": 528.4711205005646, 
+            "RTS Teardown Overhead": 45.334900045394896, 
+            "Skew": 19.716239595413207, 
+            "Task Execution Time": 4008.8727605342865
+        }, 
+        "256": {
+            "EnTK Adaptivity Overhead": 4.745681190490723, 
+            "EnTK Management Overhead": 190.17431802749633, 
+            "EnTK Setup Overhead": 12.901160049438477, 
+            "EnTK Teardown Overhead": 26.4439199924469, 
+            "Expected Exec Time": 15420, 
+            "RTS Overhead": 3087.10066075325, 
+            "RTS Teardown Overhead": 65.58461999893188, 
+            "Skew": 191.8076602935791, 
+            "Task Execution Time": 16041.594559812545
+        }
+    }, 
+    "err": {
+        "16": {
+            "EnTK Adaptivity Overhead": 0.39765325213776054, 
+            "EnTK Management Overhead": 0.9994467372478185, 
+            "EnTK Setup Overhead": 1.0832578329270366, 
+            "EnTK Teardown Overhead": 0.2560493216308116, 
+            "Expected Exec Time": 0, 
+            "RTS Overhead": 6.170364460507009, 
+            "RTS Teardown Overhead": 0.24019720608755837, 
+            "Skew": 0.3437743183014542, 
+            "Task Execution Time": 0.924310482303752
+        }, 
+        "64": {
+            "EnTK Adaptivity Overhead": 1.565063247414275, 
+            "EnTK Management Overhead": 3.5181946865438545, 
+            "EnTK Setup Overhead": 0.601805196005577, 
+            "EnTK Teardown Overhead": 3.1641376233108187, 
+            "Expected Exec Time": 0, 
+            "RTS Overhead": 67.66628331123717, 
+            "RTS Teardown Overhead": 2.037280837802069, 
+            "Skew": 1.3336323926505438, 
+            "Task Execution Time": 37.275293865472676
+        }, 
+        "256": {
+            "EnTK Adaptivity Overhead": 4.178222245467185, 
+            "EnTK Management Overhead": 20.190151944913886, 
+            "EnTK Setup Overhead": 1.241784626802018, 
+            "EnTK Teardown Overhead": 2.9944194582544075, 
+            "Expected Exec Time": 0, 
+            "RTS Overhead": 438.5337807426367, 
+            "RTS Teardown Overhead": 3.35597056731595, 
+            "Skew": 56.93311573267796, 
+            "Task Execution Time": 230.77288197162488
+        }
+    }
+}

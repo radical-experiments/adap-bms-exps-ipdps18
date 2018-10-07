@@ -1,0 +1,50 @@
+{
+    "multi-node": {
+        "avg": {
+            "EnTK Adaptivity Overhead": 6.07295286655426, 
+            "EnTK Management Overhead": 253.0971497297287, 
+            "EnTK Setup Overhead": 18.36769986152649, 
+            "EnTK Teardown Overhead": 245.68620002269745, 
+            "Expected Exec Time": 1800, 
+            "RTS Overhead": 694.5641505718231, 
+            "RTS Teardown Overhead": 0.0, 
+            "Skew": 581.9106500148773, 
+            "Task Execution Time": 1997.868449807167
+        }, 
+        "err": {
+            "EnTK Adaptivity Overhead": 0.16387613502333137, 
+            "EnTK Management Overhead": 39.02334919238064, 
+            "EnTK Setup Overhead": 2.4560646071868684, 
+            "EnTK Teardown Overhead": 0.8441441402529296, 
+            "Expected Exec Time": 0, 
+            "RTS Overhead": 208.7158247530742, 
+            "RTS Teardown Overhead": 0.0, 
+            "Skew": 219.65335239861196, 
+            "Task Execution Time": 14.619963127549749
+        }
+    }, 
+    "single-node": {
+        "avg": {
+            "EnTK Adaptivity Overhead": 4.168352782726288, 
+            "EnTK Management Overhead": 361.3184748888016, 
+            "EnTK Setup Overhead": 16.972099900245667, 
+            "EnTK Teardown Overhead": 160.34394997358322, 
+            "Expected Exec Time": 1800, 
+            "RTS Overhead": 392.1727751493454, 
+            "RTS Teardown Overhead": 0.0, 
+            "Skew": 35.735475063323975, 
+            "Task Execution Time": 1934.0747499465942
+        }, 
+        "err": {
+            "EnTK Adaptivity Overhead": 0.5618422643575478, 
+            "EnTK Management Overhead": 46.75631227317381, 
+            "EnTK Setup Overhead": 0.36369323951545524, 
+            "EnTK Teardown Overhead": 25.05969194343054, 
+            "Expected Exec Time": 0, 
+            "RTS Overhead": 79.29199285958252, 
+            "RTS Teardown Overhead": 0.0, 
+            "Skew": 4.263196790619893, 
+            "Task Execution Time": 3.4048508530715527
+        }
+    }
+}
